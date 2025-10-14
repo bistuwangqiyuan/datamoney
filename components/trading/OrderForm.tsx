@@ -22,11 +22,11 @@ export function OrderForm() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const ticker = useTicker('btcusdt');
+  const ticker = useTicker();
   const { user } = useUserStore();
   const supabase = createClient();
 
-  const marketPrice = ticker ? parseFloat(ticker.lastPrice) : 0;
+  const marketPrice = ticker ? parseFloat(ticker.price) : 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,16 +40,18 @@ export function OrderForm() {
 
     // Validation
     const qty = parseFloat(quantity);
-    if (!validateQuantity(qty)) {
-      setError('数量必须大于 0');
+    const qtyValidation = validateQuantity(qty, orderSide.toUpperCase() as 'BUY' | 'SELL');
+    if (!qtyValidation.valid) {
+      setError(qtyValidation.message || '数量无效');
       return;
     }
 
     let orderPrice = marketPrice;
     if (orderType === 'limit') {
       orderPrice = parseFloat(price);
-      if (!validatePrice(orderPrice)) {
-        setError('价格必须大于 0');
+      const priceValidation = validatePrice(orderPrice);
+      if (!priceValidation.valid) {
+        setError(priceValidation.message || '价格无效');
         return;
       }
     }
@@ -229,7 +231,7 @@ export function OrderForm() {
                 <span className="text-muted-foreground">总计:</span>
                 <span className="font-semibold">
                   {formatPrice(
-                    parseFloat(quantity) * parseFloat(orderType === 'market' ? marketPrice : price)
+                    parseFloat(quantity) * (orderType === 'market' ? marketPrice : parseFloat(price))
                   )}{' '}
                   USDT
                 </span>

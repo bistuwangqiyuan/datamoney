@@ -1,6 +1,8 @@
 import { PriceDisplay } from '@/components/market/PriceDisplay';
 import { OrderForm } from '@/components/trading/OrderForm';
 
+export const dynamic = 'force-dynamic';
+
 export default function TradePage() {
   return (
     <div className="container py-8">

@@ -1,5 +1,7 @@
 import { OrderList } from '@/components/trading/OrderList';
 
+export const dynamic = 'force-dynamic';
+
 export default function OrdersPage() {
   return (
     <div className="container py-8">

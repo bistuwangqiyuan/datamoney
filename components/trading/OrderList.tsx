@@ -11,7 +11,7 @@ import type { Order } from '@/lib/types/order';
 export function OrderList() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'open' | 'filled' | 'cancelled'>('all');
+  const [filter, setFilter] = useState<'all' | 'PENDING' | 'FILLED' | 'CANCELLED'>('all');
   const { user } = useUserStore();
   const supabase = createClient();
 
@@ -119,22 +119,22 @@ export function OrderList() {
             </Button>
             <Button
               size="sm"
-              variant={filter === 'open' ? 'default' : 'outline'}
-              onClick={() => setFilter('open')}
+              variant={filter === 'PENDING' ? 'default' : 'outline'}
+              onClick={() => setFilter('PENDING')}
             >
               进行中
             </Button>
             <Button
               size="sm"
-              variant={filter === 'filled' ? 'default' : 'outline'}
-              onClick={() => setFilter('filled')}
+              variant={filter === 'FILLED' ? 'default' : 'outline'}
+              onClick={() => setFilter('FILLED')}
             >
               已成交
             </Button>
             <Button
               size="sm"
-              variant={filter === 'cancelled' ? 'default' : 'outline'}
-              onClick={() => setFilter('cancelled')}
+              variant={filter === 'CANCELLED' ? 'default' : 'outline'}
+              onClick={() => setFilter('CANCELLED')}
             >
               已取消
             </Button>
@@ -161,39 +161,39 @@ export function OrderList() {
                     <div className="flex items-center gap-3">
                       <span
                         className={`px-2 py-1 rounded text-xs font-semibold ${
-                          order.side === 'buy'
+                          order.side === 'BUY'
                             ? 'bg-success/20 text-success'
                             : 'bg-destructive/20 text-destructive'
                         }`}
                       >
-                        {order.side === 'buy' ? '买入' : '卖出'}
+                        {order.side === 'BUY' ? '买入' : '卖出'}
                       </span>
-                      <span className="font-semibold">{order.symbol}</span>
+                      <span className="font-semibold">{order.pair}</span>
                       <span className="text-sm text-muted-foreground">
-                        {order.type === 'limit' ? '限价' : '市价'}
+                        {order.type === 'LIMIT' ? '限价' : '市价'}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span
                         className={`text-xs font-medium ${
-                          order.status === 'open'
+                          order.status === 'PENDING'
                             ? 'text-primary'
-                            : order.status === 'filled'
+                            : order.status === 'FILLED'
                             ? 'text-success'
-                            : order.status === 'cancelled'
+                            : order.status === 'CANCELLED'
                             ? 'text-muted-foreground'
                             : 'text-warning'
                         }`}
                       >
-                        {order.status === 'open'
+                        {order.status === 'PENDING'
                           ? '进行中'
-                          : order.status === 'filled'
+                          : order.status === 'FILLED'
                           ? '已成交'
-                          : order.status === 'cancelled'
+                          : order.status === 'CANCELLED'
                           ? '已取消'
                           : '部分成交'}
                       </span>
-                      {order.status === 'open' && (
+                      {order.status === 'PENDING' && (
                         <Button
                           size="sm"
                           variant="outline"

@@ -7,13 +7,13 @@ import { formatPrice, formatPercent } from '@/lib/utils/format';
 import { motion } from 'framer-motion';
 
 export function PriceDisplay() {
-  const ticker = useTicker('btcusdt');
+  const ticker = useTicker();
   const [priceChange, setPriceChange] = useState<'up' | 'down' | 'neutral'>('neutral');
   const [prevPrice, setPrevPrice] = useState<number | null>(null);
 
   useEffect(() => {
-    if (ticker && ticker.lastPrice) {
-      const currentPrice = parseFloat(ticker.lastPrice);
+    if (ticker && ticker.price) {
+      const currentPrice = parseFloat(ticker.price);
       if (prevPrice !== null) {
         if (currentPrice > prevPrice) {
           setPriceChange('up');
@@ -25,7 +25,7 @@ export function PriceDisplay() {
       }
       setPrevPrice(currentPrice);
     }
-  }, [ticker?.lastPrice, prevPrice]);
+  }, [ticker?.price, prevPrice]);
 
   if (!ticker) {
     return (
@@ -42,11 +42,11 @@ export function PriceDisplay() {
     );
   }
 
-  const price = parseFloat(ticker.lastPrice);
+  const price = parseFloat(ticker.price);
   const change24h = parseFloat(ticker.priceChange);
   const changePercent = parseFloat(ticker.priceChangePercent);
-  const high24h = parseFloat(ticker.highPrice);
-  const low24h = parseFloat(ticker.lowPrice);
+  const high24h = parseFloat(ticker.high);
+  const low24h = parseFloat(ticker.low);
   const volume24h = parseFloat(ticker.volume);
 
   const priceColor =
@@ -69,7 +69,7 @@ export function PriceDisplay() {
       <CardContent className="space-y-6">
         <div>
           <motion.div
-            key={ticker.lastPrice}
+            key={ticker.price}
             initial={{ scale: 1 }}
             animate={{ scale: [1, 1.05, 1] }}
             transition={{ duration: 0.3 }}

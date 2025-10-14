@@ -12,7 +12,7 @@ export function AssetDisplay() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useUserStore();
-  const ticker = useTicker('btcusdt');
+  const ticker = useTicker();
   const supabase = createClient();
 
   useEffect(() => {
@@ -82,10 +82,10 @@ export function AssetDisplay() {
   const btcAsset = assets.find((a) => a.asset_type === 'BTC');
   const usdtAsset = assets.find((a) => a.asset_type === 'USDT');
 
-  const btcPrice = ticker ? parseFloat(ticker.lastPrice) : 0;
-  const totalValueUSDT =
-    (btcAsset ? parseFloat(btcAsset.total) * btcPrice : 0) +
-    (usdtAsset ? parseFloat(usdtAsset.total) : 0);
+  const btcPrice = ticker ? parseFloat(ticker.price) : 0;
+  const btcTotal = btcAsset ? parseFloat(btcAsset.available) + parseFloat(btcAsset.frozen) : 0;
+  const usdtTotal = usdtAsset ? parseFloat(usdtAsset.available) + parseFloat(usdtAsset.frozen) : 0;
+  const totalValueUSDT = btcTotal * btcPrice + usdtTotal;
 
   return (
     <Card>
@@ -118,14 +118,14 @@ export function AssetDisplay() {
                     </div>
                     {btcPrice > 0 && (
                       <div className="text-sm text-muted-foreground">
-                        ≈ ${formatPrice(parseFloat(btcAsset.total) * btcPrice)}
+                        ≈ ${formatPrice(btcTotal * btcPrice)}
                       </div>
                     )}
                   </div>
                   <div className="grid grid-cols-3 gap-4 text-sm">
                     <div>
                       <div className="text-muted-foreground">总量</div>
-                      <div className="font-semibold">{btcAsset.total} BTC</div>
+                      <div className="font-semibold">{btcTotal} BTC</div>
                     </div>
                     <div>
                       <div className="text-muted-foreground">可用</div>
@@ -151,13 +151,13 @@ export function AssetDisplay() {
                       <span className="text-sm text-muted-foreground">USDT</span>
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      ≈ ${formatPrice(parseFloat(usdtAsset.total))}
+                      ≈ ${formatPrice(usdtTotal)}
                     </div>
                   </div>
                   <div className="grid grid-cols-3 gap-4 text-sm">
                     <div>
                       <div className="text-muted-foreground">总量</div>
-                      <div className="font-semibold">{formatPrice(parseFloat(usdtAsset.total))} USDT</div>
+                      <div className="font-semibold">{formatPrice(usdtTotal)} USDT</div>
                     </div>
                     <div>
                       <div className="text-muted-foreground">可用</div>
