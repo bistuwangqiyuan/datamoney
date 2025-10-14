@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 14% 6%;
+    --foreground: 210 11% 93%;
+    --card: 210 14% 11%;
+    --card-foreground: 210 11% 93%;
+    --popover: 210 14% 11%;
+    --popover-foreground: 210 11% 93%;
+    --primary: 45 93% 60%;
+    --primary-foreground: 210 14% 6%;
+    --secondary: 215 14% 20%;
+    --secondary-foreground: 210 11% 93%;
+    --muted: 215 13% 31%;
+    --muted-foreground: 210 11% 61%;
+    --accent: 215 14% 20%;
+    --accent-foreground: 210 11% 93%;
+    --destructive: 351 89% 64%;
+    --destructive-foreground: 210 11% 93%;
+    --success: 160 84% 44%;
+    --success-foreground: 210 11% 93%;
+    --border: 215 14% 20%;
+    --input: 215 14% 20%;
+    --ring: 45 93% 60%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer utilities {
+  .text-up {
+    @apply text-success;
+  }
+  .text-down {
+    @apply text-destructive;
+  }
+  .bg-up {
+    @apply bg-success;
+  }
+  .bg-down {
+    @apply bg-destructive;
+  }
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-card;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground;
+}
+
+/* 动画 */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+  background: linear-gradient(to right, transparent 0%, rgba(255, 255, 255, 0.1) 50%, transparent 100%);
+  background-size: 1000px 100%;
+}
+

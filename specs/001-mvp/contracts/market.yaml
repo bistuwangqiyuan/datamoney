@@ -1,0 +1,306 @@
+openapi: 3.0.3
+info:
+  title: 比特币交易平台 - 行情数据规范
+  version: 1.0.0
+  description: |
+    行情数据规范文档。实时行情通过 Binance WebSocket API 直接推送到前端，无需经过后端。
+    
+    本文档定义行情数据的格式和使用方法，但**不是** RESTful API。
+    
+    **数据源**: Binance Public WebSocket API
+    - Ticker Stream: `wss://stream.binance.com:9443/ws/btcusdt@ticker`
+    - Depth Stream: `wss://stream.binance.com:9443/ws/btcusdt@depth`
+    - Trade Stream: `wss://stream.binance.com:9443/ws/btcusdt@trade`
+    
+    **连接方式**: 前端 JavaScript WebSocket 客户端直连
+
+servers:
+  - url: wss://stream.binance.com:9443/ws
+    description: Binance WebSocket 服务
+
+tags:
+  - name: Market Data
+    description: 行情数据格式规范
+
+paths:
+  /btcusdt@ticker:
+    get:
+      tags:
+        - Market Data
+      summary: 24小时价格变动统计（Ticker）
+      description: |
+        订阅 BTC/USDT 交易对的 24 小时统计数据，每秒推送一次。
+        
+        **连接示例**:
+        ```javascript
+        const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@ticker');
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          console.log('Current price:', data.c);
+        };
+        ```
+      responses:
+        '101':
+          description: WebSocket 升级成功，开始接收数据流
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TickerMessage'
+
+  /btcusdt@depth:
+    get:
+      tags:
+        - Market Data
+      summary: 订单簿深度数据
+      description: |
+        订阅 BTC/USDT 的订单簿深度数据，实时更新买卖盘。
+        
+        **连接示例**:
+        ```javascript
+        const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@depth');
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          console.log('Bids:', data.bids);
+          console.log('Asks:', data.asks);
+        };
+        ```
+      responses:
+        '101':
+          description: WebSocket 升级成功，开始接收数据流
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DepthMessage'
+
+  /btcusdt@trade:
+    get:
+      tags:
+        - Market Data
+      summary: 实时成交流
+      description: |
+        订阅 BTC/USDT 的实时成交数据，每笔成交立即推送。
+        
+        **连接示例**:
+        ```javascript
+        const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade');
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          console.log('Trade:', data.p, 'x', data.q);
+        };
+        ```
+      responses:
+        '101':
+          description: WebSocket 升级成功，开始接收数据流
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TradeMessage'
+
+components:
+  schemas:
+    TickerMessage:
+      type: object
+      description: 24小时价格变动统计消息
+      properties:
+        e:
+          type: string
+          example: '24hrTicker'
+          description: 事件类型
+        E:
+          type: integer
+          example: 1697463000000
+          description: 事件时间（Unix 毫秒时间戳）
+        s:
+          type: string
+          example: 'BTCUSDT'
+          description: 交易对符号
+        c:
+          type: string
+          example: '42000.50'
+          description: 最新成交价格
+        o:
+          type: string
+          example: '41500.00'
+          description: 24小时前开盘价
+        h:
+          type: string
+          example: '42500.00'
+          description: 24小时最高价
+        l:
+          type: string
+          example: '41000.00'
+          description: 24小时最低价
+        v:
+          type: string
+          example: '12345.67'
+          description: 24小时成交量（BTC）
+        q:
+          type: string
+          example: '515123456.78'
+          description: 24小时成交额（USDT）
+        p:
+          type: string
+          example: '500.50'
+          description: 24小时价格变动
+        P:
+          type: string
+          example: '1.21'
+          description: 24小时价格变动百分比
+      required:
+        - e
+        - E
+        - s
+        - c
+        - o
+        - h
+        - l
+        - v
+        - q
+        - p
+        - P
+
+    DepthMessage:
+      type: object
+      description: 订单簿深度消息
+      properties:
+        lastUpdateId:
+          type: integer
+          example: 123456789
+          description: 最后更新 ID
+        bids:
+          type: array
+          description: 买盘（价格, 数量）
+          items:
+            type: array
+            items:
+              type: string
+            minItems: 2
+            maxItems: 2
+          example:
+            - ["42000.00", "1.5"]
+            - ["41999.00", "2.3"]
+        asks:
+          type: array
+          description: 卖盘（价格, 数量）
+          items:
+            type: array
+            items:
+              type: string
+            minItems: 2
+            maxItems: 2
+          example:
+            - ["42001.00", "1.2"]
+            - ["42002.00", "0.8"]
+      required:
+        - lastUpdateId
+        - bids
+        - asks
+
+    TradeMessage:
+      type: object
+      description: 实时成交消息
+      properties:
+        e:
+          type: string
+          example: 'trade'
+          description: 事件类型
+        E:
+          type: integer
+          example: 1697463000000
+          description: 事件时间（Unix 毫秒时间戳）
+        s:
+          type: string
+          example: 'BTCUSDT'
+          description: 交易对符号
+        t:
+          type: integer
+          example: 987654321
+          description: 成交 ID
+        p:
+          type: string
+          example: '42000.50'
+          description: 成交价格
+        q:
+          type: string
+          example: '0.05'
+          description: 成交数量
+        T:
+          type: integer
+          example: 1697463000100
+          description: 成交时间（Unix 毫秒时间戳）
+        m:
+          type: boolean
+          example: true
+          description: 买方是否为做市方（true = 卖单成交，false = 买单成交）
+      required:
+        - e
+        - E
+        - s
+        - t
+        - p
+        - q
+        - T
+        - m
+
+    ErrorMessage:
+      type: object
+      description: WebSocket 错误消息
+      properties:
+        code:
+          type: integer
+          example: 1
+          description: 错误代码
+        msg:
+          type: string
+          example: 'Invalid symbol'
+          description: 错误描述
+
+# WebSocket 连接管理建议
+x-websocket-management:
+  reconnection_strategy:
+    description: |
+      推荐的 WebSocket 重连策略：
+      
+      1. **指数退避重连**: 
+         - 第 1 次: 1 秒后重连
+         - 第 2 次: 2 秒后重连
+         - 第 3 次: 5 秒后重连
+         - 第 4 次: 10 秒后重连
+         - 第 5 次: 30 秒后重连
+         - 最多重试 5 次
+      
+      2. **心跳检测**:
+         - 每 30 秒检查是否收到消息
+         - 如果 30 秒内无消息，主动重连
+      
+      3. **页面可见性**:
+         - 使用 Page Visibility API
+         - 页面隐藏时断开连接
+         - 页面显示时重新连接
+      
+      4. **错误处理**:
+         - 网络错误: 自动重连
+         - 协议错误: 记录日志，通知用户
+         - 认证错误: 不重连（Binance 公开 API 无需认证）
+  
+  rate_limiting:
+    description: |
+      Binance WebSocket 速率限制：
+      
+      - 单个连接每秒最多 5 条消息
+      - 单个 IP 最多 300 个连接
+      - 建议使用单个连接订阅多个流（Combined Streams）
+      
+      **Combined Streams 示例**:
+      ```
+      wss://stream.binance.com:9443/stream?streams=btcusdt@ticker/btcusdt@depth
+      ```
+  
+  message_buffering:
+    description: |
+      消息缓冲策略（防止 UI 更新过快）：
+      
+      1. **节流（Throttle）**: 限制更新频率为每秒最多 10 次
+      2. **批处理**: 累积多条消息后批量更新 UI
+      3. **优先级**: Ticker 优先于 Depth，Depth 优先于 Trade
+

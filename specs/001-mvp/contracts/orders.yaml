@@ -1,0 +1,417 @@
+openapi: 3.0.3
+info:
+  title: 比特币交易平台 - 订单 API
+  version: 1.0.0
+  description: |
+    订单管理 API，包括创建订单、查询订单、取消订单等功能。
+    
+    **订单类型**:
+    - `LIMIT`: 限价单，用户指定价格和数量
+    - `MARKET`: 市价单，用户仅指定数量，以最优价格立即成交
+    
+    **订单状态**:
+    - `PENDING`: 挂单中，等待撮合
+    - `PARTIAL`: 部分成交，剩余数量继续挂单
+    - `FILLED`: 完全成交
+    - `CANCELLED`: 已取消
+    
+servers:
+  - url: https://your-project.supabase.co/functions/v1
+    description: Supabase Edge Functions
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Orders
+    description: 订单操作
+
+paths:
+  /create-order:
+    post:
+      tags:
+        - Orders
+      summary: 创建订单
+      description: |
+        创建新的交易订单（限价单或市价单）。
+        
+        **业务规则**:
+        1. 买单：需要足够的 USDT（价格 × 数量）
+        2. 卖单：需要足够的 BTC（数量）
+        3. 市价单：价格字段留空或为 null
+        4. 创建成功后自动触发撮合逻辑
+      operationId: createOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+            examples:
+              limit_buy:
+                summary: 限价买单
+                value:
+                  type: LIMIT
+                  side: BUY
+                  price: 42000.50
+                  quantity: 0.1
+              market_sell:
+                summary: 市价卖单
+                value:
+                  type: MARKET
+                  side: SELL
+                  quantity: 0.05
+      responses:
+        '201':
+          description: 订单创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid_quantity:
+                  value:
+                    error: 'Quantity must be greater than 0'
+                    code: 'invalid_quantity'
+                invalid_price:
+                  value:
+                    error: 'Price must be specified for limit orders'
+                    code: 'invalid_price'
+        '403':
+          description: 余额不足
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: 'Insufficient USDT balance'
+                code: 'insufficient_balance'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /get-orders:
+    get:
+      tags:
+        - Orders
+      summary: 查询用户订单
+      description: |
+        查询当前用户的所有订单，支持按状态过滤和分页。
+      operationId: getOrders
+      parameters:
+        - name: status
+          in: query
+          description: 订单状态过滤
+          required: false
+          schema:
+            type: string
+            enum: [PENDING, PARTIAL, FILLED, CANCELLED]
+          example: PENDING
+        - name: page
+          in: query
+          description: 页码（从 1 开始）
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          example: 1
+        - name: limit
+          in: query
+          description: 每页数量
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          example: 20
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orders:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Order'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /cancel-order:
+    post:
+      tags:
+        - Orders
+      summary: 取消订单
+      description: |
+        取消指定订单（仅限 PENDING 和 PARTIAL 状态）。
+        
+        **取消规则**:
+        1. 只能取消自己的订单
+        2. 只能取消 PENDING 或 PARTIAL 状态的订单
+        3. 取消后解冻相应的资产
+      operationId: cancelOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - order_id
+              properties:
+                order_id:
+                  type: string
+                  format: uuid
+                  example: 'c3d4e5f6-a7b8-9012-cdef-123456789012'
+                  description: 订单 ID
+      responses:
+        '200':
+          description: 取消成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: 订单无法取消
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: 'Cannot cancel filled or cancelled order'
+                code: 'invalid_status'
+        '404':
+          description: 订单不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /get-order-book:
+    get:
+      tags:
+        - Orders
+      summary: 获取订单簿
+      description: |
+        获取当前市场上所有挂单（买盘和卖盘）。
+        
+        **排序规则**:
+        - 买盘：按价格从高到低
+        - 卖盘：按价格从低到高
+        - 同价格按时间优先
+      operationId: getOrderBook
+      parameters:
+        - name: depth
+          in: query
+          description: 深度档位（每边返回多少条）
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+          example: 20
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderBook'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    CreateOrderRequest:
+      type: object
+      required:
+        - type
+        - side
+        - quantity
+      properties:
+        type:
+          type: string
+          enum: [LIMIT, MARKET]
+          example: LIMIT
+          description: 订单类型
+        side:
+          type: string
+          enum: [BUY, SELL]
+          example: BUY
+          description: 买卖方向
+        price:
+          type: number
+          format: decimal
+          example: 42000.50
+          description: 价格（市价单可省略）
+          nullable: true
+        quantity:
+          type: number
+          format: decimal
+          example: 0.1
+          description: 数量（BTC）
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 'c3d4e5f6-a7b8-9012-cdef-123456789012'
+          description: 订单 ID
+        user_id:
+          type: string
+          format: uuid
+          example: '550e8400-e29b-41d4-a716-446655440000'
+          description: 用户 ID
+        pair:
+          type: string
+          example: 'BTC/USDT'
+          description: 交易对
+        type:
+          type: string
+          enum: [LIMIT, MARKET]
+          example: LIMIT
+          description: 订单类型
+        side:
+          type: string
+          enum: [BUY, SELL]
+          example: BUY
+          description: 买卖方向
+        price:
+          type: number
+          format: decimal
+          example: 42000.50
+          description: 价格（市价单为 null）
+          nullable: true
+        quantity:
+          type: number
+          format: decimal
+          example: 0.1
+          description: 订单数量
+        filled_quantity:
+          type: number
+          format: decimal
+          example: 0.05
+          description: 已成交数量
+        status:
+          type: string
+          enum: [PENDING, PARTIAL, FILLED, CANCELLED]
+          example: PARTIAL
+          description: 订单状态
+        created_at:
+          type: string
+          format: date-time
+          example: '2025-10-14T12:00:00Z'
+          description: 创建时间
+        updated_at:
+          type: string
+          format: date-time
+          example: '2025-10-14T12:05:00Z'
+          description: 最后更新时间
+
+    OrderBook:
+      type: object
+      properties:
+        bids:
+          type: array
+          description: 买盘（按价格从高到低）
+          items:
+            type: object
+            properties:
+              price:
+                type: number
+                format: decimal
+                example: 42000.00
+              quantity:
+                type: number
+                format: decimal
+                example: 0.5
+        asks:
+          type: array
+          description: 卖盘（按价格从低到高）
+          items:
+            type: object
+            properties:
+              price:
+                type: number
+                format: decimal
+                example: 42500.00
+              quantity:
+                type: number
+                format: decimal
+                example: 0.3
+        timestamp:
+          type: string
+          format: date-time
+          example: '2025-10-14T12:00:00Z'
+          description: 快照时间
+
+    Pagination:
+      type: object
+      properties:
+        current_page:
+          type: integer
+          example: 1
+        total_pages:
+          type: integer
+          example: 5
+        total_count:
+          type: integer
+          example: 98
+        page_size:
+          type: integer
+          example: 20
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: 'Insufficient balance'
+          description: 错误描述信息
+        code:
+          type: string
+          example: 'insufficient_balance'
+          description: 错误代码
+        status:
+          type: integer
+          example: 403
+          description: HTTP 状态码
+

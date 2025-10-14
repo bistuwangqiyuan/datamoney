@@ -1,0 +1,284 @@
+openapi: 3.0.3
+info:
+  title: 比特币交易平台 - 认证 API
+  version: 1.0.0
+  description: |
+    用户认证相关 API，基于 Supabase Auth 实现。
+    
+    **认证流程**:
+    1. 用户注册/登录后获得 JWT
+    2. 所有后续请求在 Authorization 头中携带 JWT
+    3. 服务器验证 JWT 有效性并应用 RLS 策略
+    
+    **JWT 格式**: `Bearer <access_token>`
+    
+servers:
+  - url: https://your-project.supabase.co/auth/v1
+    description: Supabase Auth 服务
+
+tags:
+  - name: Authentication
+    description: 用户认证操作
+
+paths:
+  /signup:
+    post:
+      tags:
+        - Authentication
+      summary: 用户注册
+      description: |
+        创建新用户账户。注册成功后自动创建初始资产（1.0 BTC + 20,000 USDT）。
+      operationId: signUp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                  description: 用户邮箱，必须唯一且有效
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  example: SecurePass123
+                  description: 密码，最少 8 位，包含字母和数字
+      responses:
+        '200':
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  session:
+                    $ref: '#/components/schemas/Session'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid_email:
+                  value:
+                    error: 'Invalid email format'
+                    code: 'invalid_email'
+                weak_password:
+                  value:
+                    error: 'Password must be at least 8 characters'
+                    code: 'weak_password'
+        '422':
+          description: 邮箱已被注册
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: 'Email already registered'
+                code: 'email_exists'
+
+  /token?grant_type=password:
+    post:
+      tags:
+        - Authentication
+      summary: 用户登录
+      description: |
+        使用邮箱和密码登录，获取访问令牌。
+      operationId: signIn
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                password:
+                  type: string
+                  format: password
+                  example: SecurePass123
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          description: 凭据无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: 'Invalid login credentials'
+                code: 'invalid_credentials'
+
+  /token?grant_type=refresh_token:
+    post:
+      tags:
+        - Authentication
+      summary: 刷新访问令牌
+      description: |
+        使用 Refresh Token 获取新的 Access Token。
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refresh_token
+              properties:
+                refresh_token:
+                  type: string
+                  example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      responses:
+        '200':
+          description: 刷新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '401':
+          description: Refresh Token 无效或过期
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /logout:
+    post:
+      tags:
+        - Authentication
+      summary: 用户登出
+      description: |
+        撤销当前会话令牌。
+      operationId: signOut
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: 登出成功
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /user:
+    get:
+      tags:
+        - Authentication
+      summary: 获取当前用户信息
+      description: |
+        获取当前登录用户的个人信息。
+      operationId: getUser
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Supabase JWT 访问令牌。
+        
+        格式: `Authorization: Bearer <access_token>`
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: '550e8400-e29b-41d4-a716-446655440000'
+          description: 用户唯一标识
+        email:
+          type: string
+          format: email
+          example: 'user@example.com'
+          description: 用户邮箱
+        created_at:
+          type: string
+          format: date-time
+          example: '2025-10-14T10:30:00Z'
+          description: 账户创建时间
+        updated_at:
+          type: string
+          format: date-time
+          example: '2025-10-14T10:30:00Z'
+          description: 最后更新时间
+
+    Session:
+      type: object
+      properties:
+        access_token:
+          type: string
+          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1NTBlODQwMC1lMjliLTQxZDQtYTcxNi00NDY2NTU0NDAwMDAiLCJleHAiOjE2OTc0NjMwMDAsImlhdCI6MTY5NzQ1OTQwMH0.xyz'
+          description: JWT 访问令牌，有效期 1 小时
+        refresh_token:
+          type: string
+          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1NTBlODQwMC1lMjliLTQxZDQtYTcxNi00NDY2NTU0NDAwMDAiLCJleHAiOjE2OTgwNjQyMDAsImlhdCI6MTY5NzQ1OTQwMH0.abc'
+          description: 刷新令牌，有效期 7 天
+        expires_in:
+          type: integer
+          example: 3600
+          description: 访问令牌过期时间（秒）
+        token_type:
+          type: string
+          example: 'bearer'
+          description: 令牌类型
+        user:
+          $ref: '#/components/schemas/User'
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: 'Invalid credentials'
+          description: 错误描述信息
+        code:
+          type: string
+          example: 'invalid_credentials'
+          description: 错误代码
+        status:
+          type: integer
+          example: 400
+          description: HTTP 状态码
+
