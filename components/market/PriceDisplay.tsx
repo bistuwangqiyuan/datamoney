@@ -42,11 +42,11 @@ export function PriceDisplay() {
     );
   }
 
-  const price = parseFloat(ticker.lastPrice);
+  const price = parseFloat(ticker.lastPrice ?? ticker.price ?? '0');
   const change24h = parseFloat(ticker.priceChange);
   const changePercent = parseFloat(ticker.priceChangePercent);
-  const high24h = parseFloat(ticker.highPrice);
-  const low24h = parseFloat(ticker.lowPrice);
+  const high24h = parseFloat(ticker.highPrice ?? ticker.high ?? '0');
+  const low24h = parseFloat(ticker.lowPrice ?? ticker.low ?? '0');
   const volume24h = parseFloat(ticker.volume);
 
   const priceColor =
@@ -69,7 +69,7 @@ export function PriceDisplay() {
       <CardContent className="space-y-6">
         <div>
           <motion.div
-            key={ticker.lastPrice}
+            key={ticker.lastPrice ?? ticker.price}
             initial={{ scale: 1 }}
             animate={{ scale: [1, 1.05, 1] }}
             transition={{ duration: 0.3 }}

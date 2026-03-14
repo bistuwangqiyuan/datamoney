@@ -49,17 +49,15 @@ export function RegisterForm() {
       if (signUpError) throw signUpError;
 
       if (data.user) {
-        // Create user record
-        const { error: insertError } = await supabase.from('users').insert([
-          {
-            id: data.user.id,
-            email: data.user.email,
-          },
-        ]);
-
-        if (insertError && insertError.code !== '23505') {
-          // Ignore duplicate key error
-          console.error('Insert user error:', insertError);
+        // Sync user to Neon DB and init assets (1 BTC + 20,000 USDT)
+        const initRes = await fetch('/api/users/init', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        });
+        if (!initRes.ok && initRes.status !== 500) {
+          const err = await initRes.json().catch(() => ({}));
+          console.error('Init user error:', err);
         }
 
         router.push('/login?registered=true');

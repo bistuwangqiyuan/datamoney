@@ -24,18 +24,17 @@
 - **Framer Motion** - 动画库
 
 ### 后端
-- **Supabase** - 后端服务
-  - PostgreSQL 数据库
-  - Auth 认证系统
-  - Edge Functions (Deno)
-  - Row Level Security (RLS)
+- **Supabase** - 仅用于 Auth 认证（登录/注册）
+- **Neon (Netlify DB)** - PostgreSQL 数据库（资产、订单、成交）
+  - 通过 `@netlify/neon` 连接，使用 `NETLIFY_DATABASE_URL` 或本地 `DATABASE_URL`
+  - 迁移脚本：`scripts/neon-schema.sql`
   
 ### 实时数据
 - **Binance WebSocket API** - BTC/USDT 行情数据
 
 ### 部署
-- **Netlify** - 前端部署
-- **Supabase Cloud** - 后端服务
+- **Netlify** - 前端 + API 路由 + Netlify DB (Neon)
+- **Supabase Cloud** - 仅 Auth
 
 ## 📦 安装和运行
 
@@ -66,23 +65,21 @@ pnpm install
 cp .env.example .env.local
 ```
 
-编辑 `.env.local`，填入您的 Supabase 凭据：
+编辑 `.env.local`：
 
 ```env
+# Supabase（仅认证）
 NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+# Neon 数据库（本地开发可填 DATABASE_URL；Netlify 部署时由 npx netlify db init 自动设置 NETLIFY_DATABASE_URL）
+DATABASE_URL=postgresql://user:password@ep-xxx.region.aws.neon.tech/neondb?sslmode=require
 ```
 
-### 4. 推送数据库迁移
+### 4. 初始化 Neon 数据库
 
-```bash
-# 关联 Supabase 项目
-supabase link --project-ref your-project-id
-
-# 推送迁移
-supabase db push
-```
+- **在 Netlify 上**：安装 Neon 扩展后运行 `npx netlify db init`，或在项目构建时自动创建。
+- **本地或自建 Neon**：在 [Neon Console](https://console.neon.tech) 创建项目后，在 SQL Editor 中执行 `scripts/neon-schema.sql`。
 
 ### 5. 启动开发服务器
 
@@ -153,14 +150,15 @@ datamoney/
 ## 🧪 测试
 
 ```bash
-# 运行所有测试
+# 单元测试
 pnpm test
+pnpm test:coverage   # 覆盖率
+pnpm test:watch      # 监听模式
 
-# 运行测试并生成覆盖率报告
-pnpm test:coverage
-
-# 监听模式
-pnpm test:watch
+# E2E 测试（针对已部署的 Netlify 站点，默认 https://datamoney.netlify.app）
+pnpm test:e2e
+# 指定站点 URL：PLAYWRIGHT_BASE_URL=https://your-site.netlify.app pnpm test:e2e
+pnpm test:e2e:ui     # 带 UI 调试
 ```
 
 ## 🚀 部署

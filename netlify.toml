@@ -1,18 +1,15 @@
 [build]
   command = "pnpm build"
-  publish = ".next"
 
 [build.environment]
   NODE_VERSION = "20"
   NPM_FLAGS = "--version"
 
+# Netlify DB (Neon) sets NETLIFY_DATABASE_URL automatically when using @netlify/neon.
+# Run "npx netlify db init" to provision, or add Neon extension in Netlify UI.
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
 
 [[headers]]
   for = "/*"

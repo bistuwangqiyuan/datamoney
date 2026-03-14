@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { createClient } from '@/lib/supabase/client';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { formatPrice, formatDateTime } from '@/lib/utils/format';
 import type { Order } from '@/lib/types/order';
@@ -13,7 +12,25 @@ export function OrderList() {
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'open' | 'filled' | 'cancelled'>('all');
   const { user } = useUserStore();
-  const supabase = createClient();
+
+  const fetchOrders = useCallback(async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+      const url =
+        filter === 'all'
+          ? '/api/orders'
+          : `/api/orders?status=${encodeURIComponent(filter)}`;
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch orders');
+      const data = await res.json();
+      setOrders(data ?? []);
+    } catch (err) {
+      console.error('Fetch orders error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, filter]);
 
   useEffect(() => {
     if (!user) {
@@ -21,70 +38,16 @@ export function OrderList() {
       setIsLoading(false);
       return;
     }
-
     fetchOrders();
-
-    // Subscribe to real-time updates
-    const channel = supabase
-      .channel('orders-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'orders',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          fetchOrders();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, supabase]);
-
-  const fetchOrders = async () => {
-    if (!user) return;
-
-    setIsLoading(true);
-    try {
-      let query = supabase
-        .from('orders')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (filter !== 'all') {
-        query = query.eq('status', filter);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setOrders(data || []);
-    } catch (err) {
-      console.error('Fetch orders error:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchOrders();
-  }, [filter]);
+  }, [fetchOrders]);
 
   const handleCancelOrder = async (orderId: string) => {
     try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ status: 'cancelled' })
-        .eq('id', orderId)
-        .eq('user_id', user?.id);
-
-      if (error) throw error;
+      const res = await fetch(`/api/orders/${orderId}/cancel`, {
+        method: 'PATCH',
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Cancel failed');
       fetchOrders();
     } catch (err) {
       console.error('Cancel order error:', err);
@@ -161,39 +124,39 @@ export function OrderList() {
                     <div className="flex items-center gap-3">
                       <span
                         className={`px-2 py-1 rounded text-xs font-semibold ${
-                          order.side === 'buy'
+                          order.side === 'BUY'
                             ? 'bg-success/20 text-success'
                             : 'bg-destructive/20 text-destructive'
                         }`}
                       >
-                        {order.side === 'buy' ? '买入' : '卖出'}
+                        {order.side === 'BUY' ? '买入' : '卖出'}
                       </span>
-                      <span className="font-semibold">{order.symbol}</span>
+                      <span className="font-semibold">{order.pair}</span>
                       <span className="text-sm text-muted-foreground">
-                        {order.type === 'limit' ? '限价' : '市价'}
+                        {order.type === 'LIMIT' ? '限价' : '市价'}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span
                         className={`text-xs font-medium ${
-                          order.status === 'open'
+                          order.status === 'PENDING' || order.status === 'PARTIAL'
                             ? 'text-primary'
-                            : order.status === 'filled'
+                            : order.status === 'FILLED'
                             ? 'text-success'
-                            : order.status === 'cancelled'
+                            : order.status === 'CANCELLED'
                             ? 'text-muted-foreground'
                             : 'text-warning'
                         }`}
                       >
-                        {order.status === 'open'
+                        {order.status === 'PENDING' || order.status === 'PARTIAL'
                           ? '进行中'
-                          : order.status === 'filled'
+                          : order.status === 'FILLED'
                           ? '已成交'
-                          : order.status === 'cancelled'
+                          : order.status === 'CANCELLED'
                           ? '已取消'
                           : '部分成交'}
                       </span>
-                      {order.status === 'open' && (
+                      {(order.status === 'PENDING' || order.status === 'PARTIAL') && (
                         <Button
                           size="sm"
                           variant="outline"
