@@ -85,8 +85,3 @@ export function formatRelativeTime(timestamp: string | number | Date): string {
   return formatTime(date);
 }
 
-/**
- * 格式化日期时间 (别名)
- */
-export const formatDateTime = formatTime;
-

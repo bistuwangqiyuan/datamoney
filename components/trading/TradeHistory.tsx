@@ -92,7 +92,7 @@ export function TradeHistory() {
                       <span className="font-semibold">BTC/USDT</span>
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      {formatDateTime(trade.executed_at || trade.created_at)}
+                      {formatDateTime(trade.executed_at)}
                     </span>
                   </div>
 
