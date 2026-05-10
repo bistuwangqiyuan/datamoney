@@ -1,7 +1,10 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// Target: PLAYWRIGHT_BASE_URL or DEPLOY_URL; default Netlify app URL (custom domain asell.icu if reachable)
-const baseURL = process.env.PLAYWRIGHT_BASE_URL || process.env.DEPLOY_URL || 'https://datamoney.netlify.app';
+// Target: PLAYWRIGHT_BASE_URL (preferred) or DEPLOY_URL; default to the production Netlify URL.
+const baseURL =
+  process.env.PLAYWRIGHT_BASE_URL ||
+  process.env.DEPLOY_URL ||
+  'https://datamoney.netlify.app';
 
 export default defineConfig({
   testDir: './tests/e2e',

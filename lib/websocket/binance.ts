@@ -1,128 +1,145 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { useMarketStore } from '@/lib/store/useMarketStore';
-import { RECONNECT_DELAYS, MAX_RECONNECT_ATTEMPTS, HEARTBEAT_INTERVAL } from '@/lib/utils/constants';
+import {
+  RECONNECT_DELAYS,
+  MAX_RECONNECT_ATTEMPTS,
+  HEARTBEAT_INTERVAL,
+} from '@/lib/utils/constants';
 
 export function useBinanceWebSocket(url: string) {
+  const [ws, setWs] = useState<WebSocket | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttemptRef = useRef(0);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
-  const heartbeatTimeoutRef = useRef<NodeJS.Timeout>();
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined
+  );
+  const heartbeatTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined
+  );
   const lastMessageTimeRef = useRef<number>(Date.now());
-  const { setConnected } = useMarketStore();
-
-  const checkHeartbeat = useCallback(() => {
-    const timeSinceLastMessage = Date.now() - lastMessageTimeRef.current;
-    if (timeSinceLastMessage > HEARTBEAT_INTERVAL) {
-      console.log('[WS] No message received, reconnecting...');
-      disconnect();
-      connect();
-    } else {
-      heartbeatTimeoutRef.current = setTimeout(checkHeartbeat, HEARTBEAT_INTERVAL);
-    }
-  }, []);
-
-  const connect = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      return;
-    }
-
-    try {
-      console.log('[WS] Connecting to:', url);
-      const ws = new WebSocket(url);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        console.log('[WS] Connected');
-        setConnected(true);
-        reconnectAttemptRef.current = 0;
-        lastMessageTimeRef.current = Date.now();
-        heartbeatTimeoutRef.current = setTimeout(checkHeartbeat, HEARTBEAT_INTERVAL);
-      };
-
-      ws.onmessage = (event) => {
-        lastMessageTimeRef.current = Date.now();
-        try {
-          const data = JSON.parse(event.data);
-          // Message will be handled by specific hooks
-          if (ws.onmessage) {
-            (ws.onmessage as any)(event);
-          }
-        } catch (error) {
-          console.error('[WS] Parse error:', error);
-        }
-      };
-
-      ws.onerror = (error) => {
-        console.error('[WS] Error:', error);
-      };
-
-      ws.onclose = () => {
-        console.log('[WS] Disconnected');
-        setConnected(false);
-        
-        if (heartbeatTimeoutRef.current) {
-          clearTimeout(heartbeatTimeoutRef.current);
-        }
-
-        // Auto reconnect
-        if (reconnectAttemptRef.current < MAX_RECONNECT_ATTEMPTS) {
-          const delay = RECONNECT_DELAYS[reconnectAttemptRef.current] || RECONNECT_DELAYS[RECONNECT_DELAYS.length - 1];
-          console.log(`[WS] Reconnecting in ${delay}ms (attempt ${reconnectAttemptRef.current + 1}/${MAX_RECONNECT_ATTEMPTS})`);
-          
-          reconnectTimeoutRef.current = setTimeout(() => {
-            reconnectAttemptRef.current++;
-            connect();
-          }, delay);
-        } else {
-          console.error('[WS] Max reconnect attempts reached');
-        }
-      };
-    } catch (error) {
-      console.error('[WS] Connection error:', error);
-    }
-  }, [url, setConnected, checkHeartbeat]);
+  const setConnected = useMarketStore((state) => state.setConnected);
 
   const disconnect = useCallback(() => {
     if (heartbeatTimeoutRef.current) {
       clearTimeout(heartbeatTimeoutRef.current);
+      heartbeatTimeoutRef.current = undefined;
     }
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = undefined;
     }
     if (wsRef.current) {
-      wsRef.current.close();
+      try {
+        wsRef.current.close();
+      } catch {
+        // ignore
+      }
       wsRef.current = null;
     }
+    setWs(null);
     setConnected(false);
   }, [setConnected]);
 
+  const connect = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+
+    try {
+      const socket = new WebSocket(url);
+      wsRef.current = socket;
+
+      const scheduleHeartbeat = () => {
+        if (heartbeatTimeoutRef.current) {
+          clearTimeout(heartbeatTimeoutRef.current);
+        }
+        heartbeatTimeoutRef.current = setTimeout(() => {
+          const sinceLast = Date.now() - lastMessageTimeRef.current;
+          if (sinceLast > HEARTBEAT_INTERVAL) {
+            try {
+              socket.close();
+            } catch {
+              // ignore
+            }
+          } else {
+            scheduleHeartbeat();
+          }
+        }, HEARTBEAT_INTERVAL);
+      };
+
+      socket.addEventListener('open', () => {
+        setConnected(true);
+        reconnectAttemptRef.current = 0;
+        lastMessageTimeRef.current = Date.now();
+        setWs(socket);
+        scheduleHeartbeat();
+      });
+
+      // Track activity for heartbeat without interfering with consumer listeners.
+      socket.addEventListener('message', () => {
+        lastMessageTimeRef.current = Date.now();
+      });
+
+      socket.addEventListener('error', (event) => {
+        console.error('[WS] Error:', event);
+      });
+
+      socket.addEventListener('close', () => {
+        setConnected(false);
+        if (heartbeatTimeoutRef.current) {
+          clearTimeout(heartbeatTimeoutRef.current);
+          heartbeatTimeoutRef.current = undefined;
+        }
+        if (wsRef.current === socket) {
+          wsRef.current = null;
+          setWs(null);
+        }
+
+        if (reconnectAttemptRef.current < MAX_RECONNECT_ATTEMPTS) {
+          const delay =
+            RECONNECT_DELAYS[reconnectAttemptRef.current] ??
+            RECONNECT_DELAYS[RECONNECT_DELAYS.length - 1];
+          reconnectTimeoutRef.current = setTimeout(() => {
+            reconnectAttemptRef.current += 1;
+            connect();
+          }, delay);
+        }
+      });
+    } catch (error) {
+      console.error('[WS] Connection error:', error);
+    }
+  }, [url, setConnected]);
+
   useEffect(() => {
-    // Handle page visibility
+    if (typeof window === 'undefined') return;
+
+    connect();
+
     const handleVisibilityChange = () => {
       if (document.hidden) {
         disconnect();
       } else {
+        reconnectAttemptRef.current = 0;
         connect();
       }
     };
 
-    connect();
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      disconnect();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      disconnect();
     };
   }, [connect, disconnect]);
 
+  const reconnect = useCallback(() => {
+    disconnect();
+    reconnectAttemptRef.current = 0;
+    connect();
+  }, [disconnect, connect]);
+
   return {
-    ws: wsRef.current,
-    isConnected: wsRef.current?.readyState === WebSocket.OPEN,
-    reconnect: () => {
-      disconnect();
-      reconnectAttemptRef.current = 0;
-      connect();
-    },
+    ws,
+    isConnected: ws?.readyState === WebSocket.OPEN,
+    reconnect,
   };
 }
-

@@ -6,6 +6,11 @@ node_modules/
 # Testing
 coverage/
 .nyc_output
+playwright-report/
+test-results/
+
+# Cursor
+.cursor/plans/
 
 # Next.js
 .next/
