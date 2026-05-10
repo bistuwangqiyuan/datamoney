@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { createClient } from '@/lib/supabase/client';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { useTicker } from '@/lib/websocket/useTicker';
 import { formatPrice } from '@/lib/utils/format';
@@ -12,8 +11,22 @@ export function AssetDisplay() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useUserStore();
-  const ticker = useTicker();
-  const supabase = createClient();
+  const ticker = useTicker('btcusdt');
+
+  const fetchAssets = useCallback(async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/assets', { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch assets');
+      const data = await res.json();
+      setAssets(data ?? []);
+    } catch (err) {
+      console.error('Fetch assets error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!user) {
@@ -21,50 +34,10 @@ export function AssetDisplay() {
       setIsLoading(false);
       return;
     }
-
     fetchAssets();
-
-    // Subscribe to real-time updates
-    const channel = supabase
-      .channel('assets-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'assets',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          fetchAssets();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, supabase]);
-
-  const fetchAssets = async () => {
-    if (!user) return;
-
-    setIsLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('assets')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('asset_type');
-
-      if (error) throw error;
-      setAssets(data || []);
-    } catch (err) {
-      console.error('Fetch assets error:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    const interval = setInterval(fetchAssets, 5000);
+    return () => clearInterval(interval);
+  }, [user, fetchAssets]);
 
   if (!user) {
     return (
@@ -82,9 +55,13 @@ export function AssetDisplay() {
   const btcAsset = assets.find((a) => a.asset_type === 'BTC');
   const usdtAsset = assets.find((a) => a.asset_type === 'USDT');
 
-  const btcPrice = ticker ? parseFloat(ticker.price) : 0;
-  const btcTotal = btcAsset ? parseFloat(btcAsset.available) + parseFloat(btcAsset.frozen) : 0;
-  const usdtTotal = usdtAsset ? parseFloat(usdtAsset.available) + parseFloat(usdtAsset.frozen) : 0;
+  const btcTotal = btcAsset
+    ? parseFloat(btcAsset.available) + parseFloat(btcAsset.frozen)
+    : 0;
+  const usdtTotal = usdtAsset
+    ? parseFloat(usdtAsset.available) + parseFloat(usdtAsset.frozen)
+    : 0;
+  const btcPrice = ticker ? parseFloat(ticker.lastPrice ?? ticker.price ?? '0') : 0;
   const totalValueUSDT = btcTotal * btcPrice + usdtTotal;
 
   return (

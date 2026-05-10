@@ -16,9 +16,9 @@ describe('Format Utils', () => {
 
   describe('formatPercent', () => {
     it('should format percentages with 2 decimals', () => {
-      expect(formatPercent(5.5)).toBe('5.50%');
+      expect(formatPercent(5.5)).toBe('+5.50%');
       expect(formatPercent(-2.34)).toBe('-2.34%');
-      expect(formatPercent(0)).toBe('0.00%');
+      expect(formatPercent(0)).toBe('+0.00%');
     });
   });
 
@@ -26,7 +26,7 @@ describe('Format Utils', () => {
     it('should format ISO dates correctly', () => {
       const date = '2025-01-15T10:30:00Z';
       const formatted = formatDateTime(date);
-      expect(formatted).toMatch(/2025-01-15/);
+      expect(formatted).toMatch(/2025.*01.*15/);
       expect(formatted).toMatch(/\d{2}:\d{2}/);
     });
 

@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { createClient } from '@/lib/supabase/client';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { formatPrice, formatDateTime } from '@/lib/utils/format';
 import type { Order } from '@/lib/types/order';
@@ -13,7 +12,25 @@ export function OrderList() {
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'PENDING' | 'FILLED' | 'CANCELLED'>('all');
   const { user } = useUserStore();
-  const supabase = createClient();
+
+  const fetchOrders = useCallback(async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+      const url =
+        filter === 'all'
+          ? '/api/orders'
+          : `/api/orders?status=${encodeURIComponent(filter)}`;
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch orders');
+      const data = await res.json();
+      setOrders(data ?? []);
+    } catch (err) {
+      console.error('Fetch orders error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, filter]);
 
   useEffect(() => {
     if (!user) {
@@ -21,70 +38,16 @@ export function OrderList() {
       setIsLoading(false);
       return;
     }
-
     fetchOrders();
-
-    // Subscribe to real-time updates
-    const channel = supabase
-      .channel('orders-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'orders',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          fetchOrders();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, supabase]);
-
-  const fetchOrders = async () => {
-    if (!user) return;
-
-    setIsLoading(true);
-    try {
-      let query = supabase
-        .from('orders')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (filter !== 'all') {
-        query = query.eq('status', filter);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setOrders(data || []);
-    } catch (err) {
-      console.error('Fetch orders error:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchOrders();
-  }, [filter]);
+  }, [fetchOrders]);
 
   const handleCancelOrder = async (orderId: string) => {
     try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ status: 'cancelled' })
-        .eq('id', orderId)
-        .eq('user_id', user?.id);
-
-      if (error) throw error;
+      const res = await fetch(`/api/orders/${orderId}/cancel`, {
+        method: 'PATCH',
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Cancel failed');
       fetchOrders();
     } catch (err) {
       console.error('Cancel order error:', err);
@@ -176,7 +139,7 @@ export function OrderList() {
                     <div className="flex items-center gap-2">
                       <span
                         className={`text-xs font-medium ${
-                          order.status === 'PENDING'
+                          order.status === 'PENDING' || order.status === 'PARTIAL'
                             ? 'text-primary'
                             : order.status === 'FILLED'
                             ? 'text-success'
@@ -185,7 +148,7 @@ export function OrderList() {
                             : 'text-warning'
                         }`}
                       >
-                        {order.status === 'PENDING'
+                        {order.status === 'PENDING' || order.status === 'PARTIAL'
                           ? '进行中'
                           : order.status === 'FILLED'
                           ? '已成交'
@@ -193,7 +156,7 @@ export function OrderList() {
                           ? '已取消'
                           : '部分成交'}
                       </span>
-                      {order.status === 'PENDING' && (
+                      {(order.status === 'PENDING' || order.status === 'PARTIAL') && (
                         <Button
                           size="sm"
                           variant="outline"

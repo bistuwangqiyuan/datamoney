@@ -60,6 +60,9 @@ export function formatTime(timestamp: string | number | Date): string {
   });
 }
 
+/** Alias for formatTime (used by tests and components) */
+export const formatDateTime = formatTime;
+
 /**
  * 格式化相对时间
  */

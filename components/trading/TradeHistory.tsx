@@ -1,17 +1,39 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { createClient } from '@/lib/supabase/client';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { formatPrice, formatDateTime } from '@/lib/utils/format';
-import type { Trade } from '@/lib/types/trade';
+
+type TradeRow = {
+  id: string;
+  buyer_id: string;
+  seller_id: string;
+  symbol: string;
+  price: string;
+  quantity: string;
+  executed_at: string;
+};
 
 export function TradeHistory() {
-  const [trades, setTrades] = useState<Trade[]>([]);
+  const [trades, setTrades] = useState<TradeRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useUserStore();
-  const supabase = createClient();
+
+  const fetchTrades = useCallback(async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/trades', { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch trades');
+      const data = await res.json();
+      setTrades(data ?? []);
+    } catch (err) {
+      console.error('Fetch trades error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!user) {
@@ -19,63 +41,8 @@ export function TradeHistory() {
       setIsLoading(false);
       return;
     }
-
     fetchTrades();
-
-    // Subscribe to real-time updates
-    const channel = supabase
-      .channel('trades-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'trades',
-          filter: `buyer_id=eq.${user.id}`,
-        },
-        () => {
-          fetchTrades();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'trades',
-          filter: `seller_id=eq.${user.id}`,
-        },
-        () => {
-          fetchTrades();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, supabase]);
-
-  const fetchTrades = async () => {
-    if (!user) return;
-
-    setIsLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('trades')
-        .select('*')
-        .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
-        .order('executed_at', { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
-      setTrades(data || []);
-    } catch (err) {
-      console.error('Fetch trades error:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [fetchTrades]);
 
   if (!user) {
     return (
@@ -102,8 +69,8 @@ export function TradeHistory() {
           <p className="text-center text-muted-foreground py-8">暂无成交记录</p>
         ) : (
           <div className="space-y-3">
-            {trades.map((trade) => {
-              const isBuyer = trade.buyer_id === user.id;
+            {trades.map((trade: TradeRow) => {
+              const isBuyer = trade.buyer_id === user?.id;
               const side = isBuyer ? 'buy' : 'sell';
 
               return (

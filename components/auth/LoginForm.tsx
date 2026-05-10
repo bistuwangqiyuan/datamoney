@@ -42,6 +42,11 @@ export function LoginForm() {
       if (signInError) throw signInError;
 
       if (data.user) {
+        await fetch('/api/users/init', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        });
         router.push('/trade');
         router.refresh();
       }

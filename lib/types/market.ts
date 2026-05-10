@@ -1,9 +1,12 @@
 export interface TickerData {
   symbol: string;
   price: string;
+  lastPrice?: string;
   open: string;
   high: string;
+  highPrice?: string;
   low: string;
+  lowPrice?: string;
   volume: string;
   quoteVolume: string;
   priceChange: string;

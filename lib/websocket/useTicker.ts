@@ -4,7 +4,7 @@ import { useMarketStore } from '@/lib/store/useMarketStore';
 import { BINANCE_WS_TICKER } from '@/lib/utils/constants';
 import { TickerData } from '@/lib/types/market';
 
-export function useTicker() {
+export function useTicker(_symbol?: string) {
   const { ws } = useBinanceWebSocket(BINANCE_WS_TICKER);
   const { ticker, setTicker } = useMarketStore();
 
@@ -14,13 +14,16 @@ export function useTicker() {
     const handleMessage = (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data);
-        
+        const lastPrice = data.c ?? data.lastPrice ?? '';
         const tickerData: TickerData = {
           symbol: data.s,
-          price: data.c,
+          price: lastPrice,
+          lastPrice,
           open: data.o,
           high: data.h,
+          highPrice: data.h,
           low: data.l,
+          lowPrice: data.l,
           volume: data.v,
           quoteVolume: data.q,
           priceChange: data.p,
