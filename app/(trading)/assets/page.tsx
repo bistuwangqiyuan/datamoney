@@ -1,5 +1,7 @@
 import { AssetDisplay } from '@/components/trading/AssetDisplay';
 
+export const dynamic = 'force-dynamic';
+
 export default function AssetsPage() {
   return (
     <div className="container py-8">

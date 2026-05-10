@@ -89,7 +89,7 @@ export function TradeHistory() {
                       >
                         {side === 'buy' ? '买入' : '卖出'}
                       </span>
-                      <span className="font-semibold">{trade.symbol}</span>
+                      <span className="font-semibold">BTC/USDT</span>
                     </div>
                     <span className="text-xs text-muted-foreground">
                       {formatDateTime(trade.executed_at)}

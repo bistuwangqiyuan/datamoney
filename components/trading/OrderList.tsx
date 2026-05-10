@@ -10,7 +10,7 @@ import type { Order } from '@/lib/types/order';
 export function OrderList() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'open' | 'filled' | 'cancelled'>('all');
+  const [filter, setFilter] = useState<'all' | 'PENDING' | 'FILLED' | 'CANCELLED'>('all');
   const { user } = useUserStore();
 
   const fetchOrders = useCallback(async () => {
@@ -82,22 +82,22 @@ export function OrderList() {
             </Button>
             <Button
               size="sm"
-              variant={filter === 'open' ? 'default' : 'outline'}
-              onClick={() => setFilter('open')}
+              variant={filter === 'PENDING' ? 'default' : 'outline'}
+              onClick={() => setFilter('PENDING')}
             >
               进行中
             </Button>
             <Button
               size="sm"
-              variant={filter === 'filled' ? 'default' : 'outline'}
-              onClick={() => setFilter('filled')}
+              variant={filter === 'FILLED' ? 'default' : 'outline'}
+              onClick={() => setFilter('FILLED')}
             >
               已成交
             </Button>
             <Button
               size="sm"
-              variant={filter === 'cancelled' ? 'default' : 'outline'}
-              onClick={() => setFilter('cancelled')}
+              variant={filter === 'CANCELLED' ? 'default' : 'outline'}
+              onClick={() => setFilter('CANCELLED')}
             >
               已取消
             </Button>

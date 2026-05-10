@@ -2,9 +2,12 @@ export interface Trade {
   id: string;
   buy_order_id: string;
   sell_order_id: string;
+  buyer_id?: string;
+  seller_id?: string;
   price: string; // decimal as string
   quantity: string; // decimal as string
   created_at: string;
+  executed_at?: string;
 }
 
 export interface MyTrade extends Trade {

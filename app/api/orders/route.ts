@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { getNeon } from '@/lib/db/neon';
+import { getReadyNeon } from '@/lib/db/neon';
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
 
-    const sql = getNeon();
+    const sql = await getReadyNeon();
 
     let rows;
     if (status && status !== 'all') {
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid quantity' }, { status: 400 });
     }
 
-    const sql = getNeon();
+    const sql = await getReadyNeon();
     const priceVal =
       orderType === 'LIMIT' && price != null && price > 0 ? String(price) : null;
     const status = orderType === 'MARKET' ? 'PENDING' : 'PENDING';

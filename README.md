@@ -24,16 +24,17 @@
 - **Framer Motion** - 动画库
 
 ### 后端
-- **Supabase** - 仅用于 Auth 认证（登录/注册）
-- **Neon (Netlify DB)** - PostgreSQL 数据库（资产、订单、成交）
-  - 通过 `@netlify/neon` 连接，使用 `NETLIFY_DATABASE_URL` 或本地 `DATABASE_URL`
-  - 迁移脚本：`scripts/neon-schema.sql`
-  
+- **Supabase** - 仅用于 Auth 认证（登录/注册），不存放任何业务数据
+- **Netlify DB（内置 Neon Postgres）** - 业务数据库（用户/资产/订单/成交）
+  - 通过 `@netlify/neon` 连接，Netlify 自动注入 `NETLIFY_DATABASE_URL`
+  - 应用首次访问时自动幂等创建 schema（见 `lib/db/schema.ts`），无需手工跑 SQL
+  - 备用迁移脚本（手动执行用）：`scripts/neon-schema.sql`
+
 ### 实时数据
 - **Binance WebSocket API** - BTC/USDT 行情数据
 
 ### 部署
-- **Netlify** - 前端 + API 路由 + Netlify DB (Neon)
+- **Netlify** - 前端 + API 路由 + 内置 Neon 数据库
 - **Supabase Cloud** - 仅 Auth
 
 ## 📦 安装和运行
@@ -72,14 +73,16 @@ cp .env.example .env.local
 NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
-# Neon 数据库（本地开发可填 DATABASE_URL；Netlify 部署时由 npx netlify db init 自动设置 NETLIFY_DATABASE_URL）
+# 数据库（Netlify 部署时无需配置；本地开发可填 DATABASE_URL，或运行 `netlify dev` 由 CLI 注入 NETLIFY_DATABASE_URL）
 DATABASE_URL=postgresql://user:password@ep-xxx.region.aws.neon.tech/neondb?sslmode=require
 ```
 
-### 4. 初始化 Neon 数据库
+### 4. 数据库 schema
 
-- **在 Netlify 上**：安装 Neon 扩展后运行 `npx netlify db init`，或在项目构建时自动创建。
-- **本地或自建 Neon**：在 [Neon Console](https://console.neon.tech) 创建项目后，在 SQL Editor 中执行 `scripts/neon-schema.sql`。
+不需要手工建表。应用启动后第一次调用任何 API 时，[`lib/db/schema.ts`](lib/db/schema.ts)
+会幂等地在 Netlify 内置的 Neon 数据库里创建所有表、索引和触发器（已存在则跳过）。
+
+如果你更喜欢一次性手动执行，仍可在 Neon SQL Editor 中跑 [`scripts/neon-schema.sql`](scripts/neon-schema.sql)。
 
 ### 5. 启动开发服务器
 
@@ -116,9 +119,8 @@ datamoney/
 │   ├── store/                  # Zustand 状态
 │   ├── types/                  # TypeScript 类型
 │   └── utils/                  # 工具函数
-├── supabase/                   # Supabase 配置
-│   ├── functions/              # Edge Functions
-│   └── migrations/             # 数据库迁移
+├── scripts/
+│   └── neon-schema.sql         # 备用：可在 Neon SQL Editor 手动执行
 └── tests/                      # 测试文件
     ├── unit/
     ├── integration/

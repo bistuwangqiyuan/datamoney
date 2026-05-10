@@ -1,5 +1,7 @@
 import { TradeHistory } from '@/components/trading/TradeHistory';
 
+export const dynamic = 'force-dynamic';
+
 export default function TradesPage() {
   return (
     <div className="container py-8">

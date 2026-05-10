@@ -5,8 +5,11 @@
   NODE_VERSION = "20"
   NPM_FLAGS = "--version"
 
-# Netlify DB (Neon) sets NETLIFY_DATABASE_URL automatically when using @netlify/neon.
-# Run "npx netlify db init" to provision, or add Neon extension in Netlify UI.
+# Database: Netlify DB (built-in Neon Postgres). Once the database is connected
+# from the Netlify UI (Site → Configuration → Database), the platform injects
+# NETLIFY_DATABASE_URL automatically at build/runtime; no manual config needed.
+# Auth still runs on Supabase, configured via NEXT_PUBLIC_SUPABASE_URL +
+# NEXT_PUBLIC_SUPABASE_ANON_KEY in the Netlify UI.
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

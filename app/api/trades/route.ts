@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { getNeon } from '@/lib/db/neon';
+import { getReadyNeon } from '@/lib/db/neon';
 
 export async function GET() {
   try {
@@ -9,7 +9,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const sql = getNeon();
+    const sql = await getReadyNeon();
     const rows = await sql`
       SELECT t.id, t.buy_order_id, t.sell_order_id, t.price, t.quantity, t.created_at,
              bo.user_id AS buyer_id, so.user_id AS seller_id

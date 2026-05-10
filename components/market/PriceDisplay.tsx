@@ -7,13 +7,13 @@ import { formatPrice, formatPercent } from '@/lib/utils/format';
 import { motion } from 'framer-motion';
 
 export function PriceDisplay() {
-  const ticker = useTicker('btcusdt');
+  const ticker = useTicker();
   const [priceChange, setPriceChange] = useState<'up' | 'down' | 'neutral'>('neutral');
   const [prevPrice, setPrevPrice] = useState<number | null>(null);
 
   useEffect(() => {
-    if (ticker && ticker.lastPrice) {
-      const currentPrice = parseFloat(ticker.lastPrice);
+    if (ticker && ticker.price) {
+      const currentPrice = parseFloat(ticker.price);
       if (prevPrice !== null) {
         if (currentPrice > prevPrice) {
           setPriceChange('up');
@@ -25,7 +25,7 @@ export function PriceDisplay() {
       }
       setPrevPrice(currentPrice);
     }
-  }, [ticker?.lastPrice, prevPrice]);
+  }, [ticker?.price, prevPrice]);
 
   if (!ticker) {
     return (

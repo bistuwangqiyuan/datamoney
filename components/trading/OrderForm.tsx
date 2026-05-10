@@ -21,7 +21,7 @@ export function OrderForm() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const ticker = useTicker('btcusdt');
+  const ticker = useTicker();
   const { user } = useUserStore();
 
   const marketPrice = ticker ? parseFloat(ticker.lastPrice ?? ticker.price ?? '0') : 0;
