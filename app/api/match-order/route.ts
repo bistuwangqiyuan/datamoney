@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { getNeon } from '@/lib/db/neon';
+import { getReadyNeon } from '@/lib/db/neon';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'orderId is required' }, { status: 400 });
     }
 
-    const sql = getNeon();
+    const sql = await getReadyNeon();
 
     const orders = await sql`
       SELECT * FROM orders WHERE id = ${orderId} AND user_id = ${user.id}

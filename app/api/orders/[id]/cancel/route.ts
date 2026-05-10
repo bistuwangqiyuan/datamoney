@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { getNeon } from '@/lib/db/neon';
+import { getReadyNeon } from '@/lib/db/neon';
 
 export async function PATCH(
   _request: NextRequest,
@@ -17,7 +17,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Order id required' }, { status: 400 });
     }
 
-    const sql = getNeon();
+    const sql = await getReadyNeon();
     const updated = await sql`
       UPDATE orders
       SET status = 'CANCELLED', updated_at = NOW()
